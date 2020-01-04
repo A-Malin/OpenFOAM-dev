@@ -47,6 +47,7 @@ SourceFiles
 #define cyclicPolyPatch_H
 
 #include "coupledPolyPatch.H"
+#include "cyclicTransform.H"
 #include "edgeList.H"
 #include "polyBoundaryMesh.H"
 #include "diagTensorField.H"
@@ -63,35 +64,41 @@ namespace Foam
 
 class cyclicPolyPatch
 :
-    public coupledPolyPatch
+    public coupledPolyPatch,
+    public cyclicTransform
 {
     // Private Data
 
-        //- Name of other half
-        mutable word neighbPatchName_;
+        //- Name of cyclic neighbour patch
+        mutable word nbrPatchName_;
 
-        //- Optional patchGroup to find neighbPatch
+        //- Optional patchGroup to find neighbour patch
         const coupleGroupIdentifier coupleGroup_;
 
-        //- Index of other half
-        mutable label neighbPatchID_;
+        //- Index of cyclic neighbour patch
+        mutable label nbrPatchID_;
 
-        // For rotation
+        // Specified transformation
 
-            //- Axis of rotation for rotational cyclics
-            vector rotationAxis_;
+            // For translation
 
-            //- Point on axis of rotation for rotational cyclics
-            point rotationCentre_;
+                //- Offset vector from one side of the cyclic to the other
+                vector separation_;
 
+            // For rotation
+
+                //- Axis of rotation for rotational cyclics
+                vector rotationAxis_;
+
+                //- Point on axis of rotation for rotational cyclics
+                point rotationCentre_;
 
         //- List of edges formed from connected points. e[0] is the point on
-        //  the first half of the patch, e[1] the corresponding point on the
-        //  second half.
+        //  this patch, e[1] the corresponding point on the cyclic neighbour.
         mutable edgeList* coupledPointsPtr_;
 
-        //- List of connected edges. e[0] is the edge on the first half of the
-        //  patch, e[1] the corresponding edge on the second half.
+        //- List of connected edges. e[0] is the edge on this patch,
+        //  e[1] the corresponding edge on the cyclic neigbour
         mutable edgeList* coupledEdgesPtr_;
 
         //- Temporary storage of owner side patch during ordering.
@@ -107,10 +114,10 @@ class cyclicPolyPatch
         //  translational transform
         void calcTransformTensors
         (
-            const vectorField& Cf,
-            const vectorField& Cr,
-            const vectorField& nf,
-            const vectorField& nr,
+            const vectorField& thisPatchCtrs,
+            const vectorField& nbrPatchCtrs,
+            const vectorField& thisPatchNormals,
+            const vectorField& nbrPatchNormals,
             const scalarField& smallDist,
             const scalar absTol,
             const orderingType = UNKNOWN,
@@ -122,26 +129,24 @@ class cyclicPolyPatch
 
         void calcTransforms
         (
-            const primitivePatch& half0,
-            const pointField& half0Ctrs,
-            const vectorField& half0Areas,
-            const pointField& half1Ctrs,
-            const vectorField& half1Areas
+            const primitivePatch& thisPatch,
+            const pointField& thisPatchCtrs,
+            const vectorField& thisPatchAreas,
+            const pointField& nbrPatchCtrs,
+            const vectorField& nbrPatchAreas
         );
 
         // Face ordering
 
-            // Given a split of faces into left and right half calculate the
-            // centres and anchor points. Transform the left points so they
-            // align with the right ones
+            // Transform the points of this patch so they align with those of
+            // the cyclic neighbour
             void getCentresAndAnchors
             (
-                const primitivePatch& pp0,
-                const primitivePatch& pp1,
-
-                pointField& half0Ctrs,
-                pointField& half1Ctrs,
-                pointField& anchors0,
+                const primitivePatch& thisPatch,
+                const primitivePatch& nbrPatch,
+                pointField& thisPatchCtrs,
+                pointField& nbrPatchCtrs,
+                pointField& anchors,
                 scalarField& tols
             ) const;
 
@@ -228,7 +233,7 @@ public:
             const label index,
             const polyBoundaryMesh& bm,
             const word& patchType,
-            const word& neighbPatchName,
+            const word& nbrPatchName,
             const orderingType ordering
         );
 
@@ -255,7 +260,7 @@ public:
             const label index,
             const label newSize,
             const label newStart,
-            const word& neighbPatchName
+            const word& nbrPatchName
         );
 
         //- Construct given the original patch and a map
@@ -293,7 +298,7 @@ public:
                     index,
                     newSize,
                     newStart,
-                    neighbPatchName_
+                    nbrPatchName_
                 )
             );
         }
@@ -322,14 +327,14 @@ public:
     // Member Functions
 
         //- Neighbour patch name
-        const word& neighbPatchName() const;
+        const word& nbrPatchName() const;
 
         //- Neighbour patchID
-        virtual label neighbPatchID() const;
+        virtual label nbrPatchID() const;
 
         virtual bool owner() const
         {
-            return index() < neighbPatchID();
+            return index() < nbrPatchID();
         }
 
         virtual bool neighbour() const
@@ -337,9 +342,9 @@ public:
             return !owner();
         }
 
-        const cyclicPolyPatch& neighbPatch() const
+        const cyclicPolyPatch& nbrPatch() const
         {
-            const polyPatch& pp = this->boundaryMesh()[neighbPatchID()];
+            const polyPatch& pp = this->boundaryMesh()[nbrPatchID()];
             return refCast<const cyclicPolyPatch>(pp);
         }
 
@@ -353,6 +358,12 @@ public:
         //  calculation!
         const edgeList& coupledEdges() const;
 
+        //- Return transformation between the coupled patches
+        virtual const transformer& transform() const
+        {
+            return cyclicTransform::transform();
+        }
+
         //- Transform a patch-based position from other side to this side
         virtual void transformPosition(pointField& l) const;
 
@@ -365,11 +376,11 @@ public:
         label transformGlobalFace(const label facei) const
         {
             label offset = facei-start();
-            label neighbStart = neighbPatch().start();
+            label neiStart = nbrPatch().start();
 
             if (offset >= 0 && offset < size())
             {
-                return neighbStart+offset;
+                return neiStart+offset;
             }
             else
             {

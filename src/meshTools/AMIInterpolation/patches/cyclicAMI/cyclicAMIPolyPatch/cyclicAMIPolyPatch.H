@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2011-2019 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2020 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -36,6 +36,7 @@ SourceFiles
 #define cyclicAMIPolyPatch_H
 
 #include "coupledPolyPatch.H"
+#include "cyclicTransform.H"
 #include "AMIInterpolation.H"
 #include "polyBoundaryMesh.H"
 #include "coupleGroupIdentifier.H"
@@ -51,7 +52,8 @@ namespace Foam
 
 class cyclicAMIPolyPatch
 :
-    public coupledPolyPatch
+    public coupledPolyPatch,
+    public cyclicTransform
 {
     // Private Member Functions
 
@@ -60,11 +62,11 @@ class cyclicAMIPolyPatch
 
         void calcTransforms
         (
-            const primitivePatch& half0,
-            const pointField& half0Ctrs,
-            const vectorField& half0Areas,
-            const pointField& half1Ctrs,
-            const vectorField& half1Areas
+            const primitivePatch& thisPatch,
+            const pointField& thisPatchCtrs,
+            const vectorField& thisPatchAreas,
+            const pointField& neiPatchCtrs,
+            const vectorField& neiPatchAreas
         );
 
 
@@ -72,17 +74,21 @@ protected:
 
     // Protected data
 
-        //- Name of other half
+        //- Name of cyclic neighbour patch
         mutable word nbrPatchName_;
 
-        //- Optional patchGroup to find neighbPatch
+        //- Optional patchGroup to find nbrPatch
         const coupleGroupIdentifier coupleGroup_;
 
-        //- Index of other half
+        //- Index of cyclic neighbour patch
         mutable label nbrPatchID_;
 
+        // Specified transformation
 
-        // Transformations
+            // For translation
+
+                //- Offset vector from one side of the cyclic to the other
+                vector separation_;
 
             // For rotation
 
@@ -97,7 +103,6 @@ protected:
 
                 //- Rotation angle
                 scalar rotationAngle_;
-
 
         //- AMI interpolation classes
         mutable PtrList<AMIInterpolation> AMIs_;
@@ -286,16 +291,16 @@ public:
             }
 
             //- Neighbour patch name
-            inline const word& neighbPatchName() const;
+            inline const word& nbrPatchName() const;
 
             //- Neighbour patch ID
-            virtual label neighbPatchID() const;
+            virtual label nbrPatchID() const;
 
             //- Does this side own the patch?
             virtual bool owner() const;
 
             //- Return a reference to the neighbour patch
-            virtual const cyclicAMIPolyPatch& neighbPatch() const;
+            virtual const cyclicAMIPolyPatch& nbrPatch() const;
 
             //- Return a reference to the projection surface
             const autoPtr<searchableSurface>& surfPtr() const;
@@ -313,76 +318,81 @@ public:
             virtual const scalarField& weightsSum() const;
 
             //- Return the weights sum for the neighbour patch
-            virtual const scalarField& neighbWeightsSum() const;
+            virtual const scalarField& nbrWeightsSum() const;
 
 
+        // Transformations
 
-            // Transformations
+            //- Return transformation between the coupled patches
+            virtual const transformer& transform() const
+            {
+                return cyclicTransform::transform();
+            }
 
-                //- Axis of rotation for rotational cyclic AMI
-                inline const vector& rotationAxis() const;
+            //- Axis of rotation for rotational cyclic AMI
+            inline const vector& rotationAxis() const;
 
-                //- Point on axis of rotation for rotational cyclic AMI
-                inline const point& rotationCentre() const;
+            //- Point on axis of rotation for rotational cyclic AMI
+            inline const point& rotationCentre() const;
 
-                //- Transform patch-based positions from nbr side to this side
-                virtual void transformPosition(pointField&) const;
+            //- Transform patch-based positions from nbr side to this side
+            virtual void transformPosition(pointField&) const;
 
-                //- Transform a patch-based position from nbr side to this side
-                virtual void transformPosition
-                (
-                    point& l,
-                    const label facei
-                ) const;
+            //- Transform a patch-based position from nbr side to this side
+            virtual void transformPosition
+            (
+                point& l,
+                const label facei
+            ) const;
 
-                //- Transform a patch-based direction from nbr side to this side
-                virtual void transformDirection
-                (
-                    vector& d,
-                    const label facei
-                ) const;
+            //- Transform a patch-based direction from nbr side to this side
+            virtual void transformDirection
+            (
+                vector& d,
+                const label facei
+            ) const;
 
-                //- Transform a patch-based position from this side to nbr side
-                virtual void reverseTransformPosition
-                (
-                    point& l,
-                    const label facei
-                ) const;
+            //- Transform a patch-based position from this side to nbr side
+            virtual void reverseTransformPosition
+            (
+                point& l,
+                const label facei
+            ) const;
 
-                //- Transform a patch-based direction from this side to nbr side
-                virtual void reverseTransformDirection
-                (
-                    vector& d,
-                    const label facei
-                ) const;
+            //- Transform a patch-based direction from this side to nbr side
+            virtual void reverseTransformDirection
+            (
+                vector& d,
+                const label facei
+            ) const;
 
 
-            // Interpolations
+        // Interpolations
 
-                //- Interpolate field
-                template<class Type>
-                tmp<Field<Type>> interpolate
-                (
-                    const Field<Type>& fld,
-                    const UList<Type>& defaultValues = UList<Type>()
-                ) const;
+            //- Interpolate field
+            template<class Type>
+            tmp<Field<Type>> interpolate
+            (
+                const Field<Type>& fld,
+                const UList<Type>& defaultValues = UList<Type>()
+            ) const;
 
-                //- Interpolate tmp field
-                template<class Type>
-                tmp<Field<Type>> interpolate
-                (
-                    const tmp<Field<Type>>& tFld,
-                    const UList<Type>& defaultValues = UList<Type>()
-                ) const;
+            //- Interpolate tmp field
+            template<class Type>
+            tmp<Field<Type>> interpolate
+            (
+                const tmp<Field<Type>>& tFld,
+                const UList<Type>& defaultValues = UList<Type>()
+            ) const;
 
-                //- Interpolate field component
-                tmp<scalarField> interpolate
-                (
-                    const scalarField& field,
-                    const direction cmpt,
-                    const direction rank,
-                    const scalarUList& defaultValues = scalarUList()
-                ) const;
+            //- Interpolate field component
+            tmp<scalarField> interpolate
+            (
+                const scalarField& field,
+                const direction cmpt,
+                const direction rank,
+                const scalarUList& defaultValues = scalarUList()
+            ) const;
 
 
         //- Calculate the patch geometry

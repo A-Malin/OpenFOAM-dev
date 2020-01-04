@@ -159,7 +159,7 @@ public:
             tmp<Field<Type>> patchNeighbourField() const;
 
             //- Return reference to neighbour patchField
-            const cyclicFvPatchField<Type>& neighbourPatchField() const;
+            const cyclicFvPatchField<Type>& nbrPatchField() const;
 
             //- Update result field based on interface functionality
             virtual void updateInterfaceMatrix
@@ -182,14 +182,6 @@ public:
 
 
         // Cyclic coupled interface functions
-
-            //- Does the patch field perform the transformation
-            virtual bool doTransform() const
-            {
-                return
-                    cyclicPatch_.transform().rotates()
-                 && pTraits<Type>::rank != 0;
-            }
 
             //- Return transformation between the coupled patches
             virtual const transformer& transform() const

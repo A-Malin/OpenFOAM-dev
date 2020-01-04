@@ -87,6 +87,9 @@ public:
 
         static const transformer I;
 
+        //- Null transformer
+        static const transformer null;
+
 
     // Constructors
 
@@ -195,6 +198,10 @@ public:
             //- Inverse transform the given type
             template<class Type>
             Type invTransform(const Type&) const;
+
+            //- Inverse transform the given field
+            template<class Type>
+            void invTransform(Field<Type>&, const Field<Type>&) const;
 
             //- Inverse transform the given field
             template<class Type>

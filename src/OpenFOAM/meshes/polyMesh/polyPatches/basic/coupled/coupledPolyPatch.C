@@ -46,18 +46,6 @@ namespace Foam
 
     const NamedEnum<coupledPolyPatch::orderingType, 3>
         coupledPolyPatch::orderingTypeNames;
-
-    template<>
-    const char* NamedEnum<coupledPolyPatch::transformTypes, 4>::names[] =
-    {
-        "unspecified",
-        "none",
-        "rotational",
-        "translational"
-    };
-
-    const NamedEnum<coupledPolyPatch::transformTypes, 4>
-        coupledPolyPatch::transformTypeNames;
 }
 
 
@@ -314,10 +302,7 @@ Foam::coupledPolyPatch::coupledPolyPatch
 :
     polyPatch(name, size, start, index, bm, patchType),
     matchTolerance_(defaultMatchTol_),
-    ordering_(ordering),
-    transformType_(UNSPECIFIED),
-    parallel_(true),
-    separated_(false)
+    ordering_(ordering)
 {}
 
 
@@ -338,15 +323,7 @@ Foam::coupledPolyPatch::coupledPolyPatch
         dict.found("ordering")
       ? orderingTypeNames.read(dict.lookup("ordering"))
       : ordering
-    ),
-    transformType_
-    (
-        dict.found("transformType")
-      ? transformTypeNames.read(dict.lookup("transformType"))
-      : UNSPECIFIED
-    ),
-    parallel_(true),
-    separated_(false)
+    )
 {}
 
 
@@ -357,10 +334,7 @@ Foam::coupledPolyPatch::coupledPolyPatch
 )
 :
     polyPatch(pp, bm),
-    matchTolerance_(pp.matchTolerance_),
-    transformType_(pp.transformType_),
-    parallel_(true),
-    separated_(false)
+    matchTolerance_(pp.matchTolerance_)
 {}
 
 
@@ -374,10 +348,7 @@ Foam::coupledPolyPatch::coupledPolyPatch
 )
 :
     polyPatch(pp, bm, index, newSize, newStart),
-    matchTolerance_(pp.matchTolerance_),
-    transformType_(pp.transformType_),
-    parallel_(true),
-    separated_(false)
+    matchTolerance_(pp.matchTolerance_)
 {}
 
 
@@ -391,10 +362,7 @@ Foam::coupledPolyPatch::coupledPolyPatch
 )
 :
     polyPatch(pp, bm, index, mapAddressing, newStart),
-    matchTolerance_(pp.matchTolerance_),
-    transformType_(pp.transformType_),
-    parallel_(true),
-    separated_(false)
+    matchTolerance_(pp.matchTolerance_)
 {}
 
 
@@ -411,7 +379,6 @@ void Foam::coupledPolyPatch::write(Ostream& os) const
     polyPatch::write(os);
     writeEntry(os, "matchTolerance", matchTolerance_);
     writeEntry(os, "ordering", orderingTypeNames[ordering_]);
-    writeEntry(os, "transformType", transformTypeNames[transformType_]);
 }
 
 

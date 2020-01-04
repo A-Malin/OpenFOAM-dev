@@ -66,16 +66,6 @@ public:
 
     static const NamedEnum<orderingType, 3> orderingTypeNames;
 
-    enum transformTypes
-    {
-        UNSPECIFIED,        // Unspecified -> automatic transformation
-        NONE,               // No tranformation
-        ROTATIONAL,         // Rotation around a coordinate axis
-        TRANSLATIONAL       // Translation
-    };
-
-    static const NamedEnum<transformTypes, 4> transformTypeNames;
-
 
 protected:
 
@@ -89,27 +79,6 @@ protected:
 
         //- Type of ordering
         orderingType ordering_;
-
-        //- Type of transformation
-        transformTypes transformType_;
-
-        //- Are coupled patches parallel
-        mutable bool parallel_;
-
-        //- Are coupled patches separated
-        mutable bool separated_;
-
-        //- Offset (distance) vector from one side of the couple to the other
-        mutable vector separation_;
-
-        //- Face transformation tensor
-        mutable tensor forwardT_;
-
-        //- Neighbour-cell transformation tensor
-        mutable tensor reverseT_;
-
-        //- Transformation between the coupled patches
-        mutable transformer transform_;
 
 
 protected:
@@ -261,23 +230,14 @@ public:
                 return ordering_;
             }
 
-            //- Type of transform
-            virtual transformTypes transformType() const
-            {
-                return transformType_;
-            }
+            //- Return transformation between the coupled patches
+            virtual const transformer& transform() const = 0;
 
             //- Transform a patch-based position from other side to this side
             virtual void transformPosition(pointField&) const = 0;
 
             //- Transform a patch-based position from other side to this side
             virtual void transformPosition(point&, const label facei) const = 0;
-
-            //- Return transformation between the coupled patches
-            virtual const transformer& transform() const
-            {
-                return transform_;
-            }
 
             scalar matchTolerance() const
             {

@@ -70,21 +70,21 @@ Foam::vector Foam::cyclicAMIPolyPatch::findFaceNormalMaxRadius
 
 void Foam::cyclicAMIPolyPatch::calcTransforms
 (
-    const primitivePatch& half0,
-    const pointField& half0Ctrs,
-    const vectorField& half0Areas,
-    const pointField& half1Ctrs,
-    const vectorField& half1Areas
+    const primitivePatch& thisPatch,
+    const pointField& thisPatchCtrs,
+    const vectorField& thisPatchAreas,
+    const pointField& nbrPatchCtrs,
+    const vectorField& nbrPatchAreas
 )
 {
-    if (transformType() != neighbPatch().transformType())
+    if (transformType() != nbrPatch().transformType())
     {
         FatalErrorInFunction
             << "Patch " << name()
             << " has transform type " << transformTypeNames[transformType()]
-            << ", neighbour patch " << neighbPatchName()
+            << ", neighbour patch " << nbrPatchName()
             << " has transform type "
-            << neighbPatch().transformTypeNames[neighbPatch().transformType()]
+            << nbrPatch().transformTypeNames[nbrPatch().transformType()]
             << exit(FatalError);
     }
 
@@ -124,9 +124,9 @@ void Foam::cyclicAMIPolyPatch::calcTransforms
 
                 // Check - assume correct angle when difference in face areas
                 // is the smallest
-                const vector transformedAreaPos = gSum(half1Areas & revTPos);
-                const vector transformedAreaNeg = gSum(half1Areas & revTNeg);
-                const vector area0 = gSum(half0Areas);
+                const vector transformedAreaPos = gSum(nbrPatchAreas & revTPos);
+                const vector transformedAreaNeg = gSum(nbrPatchAreas & revTNeg);
+                const vector area0 = gSum(thisPatchAreas);
                 const scalar magArea0 = mag(area0) + rootVSmall;
 
                 // Areas have opposite sign, so sum should be zero when correct
@@ -157,7 +157,7 @@ void Foam::cyclicAMIPolyPatch::calcTransforms
                         << " % indicating a possible error in the specified "
                         << "angle of rotation" << nl
                         << "    owner patch     : " << name() << nl
-                        << "    neighbour patch : " << neighbPatch().name()
+                        << "    neighbour patch : " << nbrPatch().name()
                         << nl
                         << "    angle           : "
                         << radToDeg(rotationAngle_) << " deg" << nl
@@ -182,13 +182,13 @@ void Foam::cyclicAMIPolyPatch::calcTransforms
             {
                 point n0 = Zero;
                 point n1 = Zero;
-                if (half0Ctrs.size())
+                if (thisPatchCtrs.size())
                 {
-                    n0 = findFaceNormalMaxRadius(half0Ctrs);
+                    n0 = findFaceNormalMaxRadius(thisPatchCtrs);
                 }
-                if (half1Ctrs.size())
+                if (nbrPatchCtrs.size())
                 {
-                    n1 = -findFaceNormalMaxRadius(half1Ctrs);
+                    n1 = -findFaceNormalMaxRadius(nbrPatchCtrs);
                 }
 
                 reduce(n0, maxMagSqrOp<point>());
@@ -227,11 +227,7 @@ void Foam::cyclicAMIPolyPatch::calcTransforms
                 }
             }
 
-            parallel_ = false;
-            separated_ = false;
             separation_ = Zero;
-            forwardT_ = revT.T();
-            reverseT_ = revT;
 
             transform_ = transformer(revT.T());
 
@@ -246,11 +242,6 @@ void Foam::cyclicAMIPolyPatch::calcTransforms
                     << endl;
             }
 
-            parallel_ = true;
-            separated_ = true;
-            forwardT_ = Zero;
-            reverseT_ = Zero;
-
             transform_ = transformer(separation_);
 
             break;
@@ -263,11 +254,7 @@ void Foam::cyclicAMIPolyPatch::calcTransforms
                     << " Assuming cyclic AMI pairs are colocated" << endl;
             }
 
-            parallel_ = true;
-            separated_ = false;
             separation_ = Zero;
-            forwardT_ = Zero;
-            reverseT_ = Zero;
 
             transform_ = transformer();
 
@@ -289,18 +276,18 @@ void Foam::cyclicAMIPolyPatch::resetAMI() const
 {
     if (owner())
     {
-        const polyPatch& nbr = neighbPatch();
+        const polyPatch& nbr = nbrPatch();
         pointField nbrPoints
         (
-            neighbPatch().boundaryMesh().mesh().points(),
-            neighbPatch().meshPoints()
+            nbrPatch().boundaryMesh().mesh().points(),
+            nbrPatch().meshPoints()
         );
 
         if (debug)
         {
             const Time& t = boundaryMesh().mesh().time();
             OFstream os(t.path()/name() + "_neighbourPatch-org.obj");
-            meshTools::writeOBJ(os, neighbPatch().localFaces(), nbrPoints);
+            meshTools::writeOBJ(os, nbrPatch().localFaces(), nbrPoints);
         }
 
         // Transform neighbour patch to local system
@@ -360,27 +347,27 @@ void Foam::cyclicAMIPolyPatch::resetAMI() const
 
 void Foam::cyclicAMIPolyPatch::calcTransforms()
 {
-    const cyclicAMIPolyPatch& half0 = *this;
-    vectorField half0Areas(half0.size());
-    forAll(half0, facei)
+    const cyclicAMIPolyPatch& thisPatch = *this;
+    vectorField thisPatchAreas(thisPatch.size());
+    forAll(thisPatch, facei)
     {
-        half0Areas[facei] = half0[facei].area(half0.points());
+        thisPatchAreas[facei] = thisPatch[facei].area(thisPatch.points());
     }
 
-    const cyclicAMIPolyPatch& half1 = neighbPatch();
-    vectorField half1Areas(half1.size());
-    forAll(half1, facei)
+    const cyclicAMIPolyPatch& nbrPatch = this->nbrPatch();
+    vectorField nbrPatchAreas(nbrPatch.size());
+    forAll(nbrPatch, facei)
     {
-        half1Areas[facei] = half1[facei].area(half1.points());
+        nbrPatchAreas[facei] = nbrPatch[facei].area(nbrPatch.points());
     }
 
     calcTransforms
     (
-        half0,
-        half0.faceCentres(),
-        half0Areas,
-        half1.faceCentres(),
-        half1Areas
+        thisPatch,
+        thisPatch.faceCentres(),
+        thisPatchAreas,
+        nbrPatch.faceCentres(),
+        nbrPatchAreas
     );
 
     if (debug)
@@ -409,9 +396,9 @@ void Foam::cyclicAMIPolyPatch::calcGeometry(PstreamBuffers& pBufs)
         faceCentres(),
         faceAreas(),
         faceCellCentres(),
-        neighbPatch().faceCentres(),
-        neighbPatch().faceAreas(),
-        neighbPatch().faceCellCentres()
+        nbrPatch().faceCentres(),
+        nbrPatch().faceAreas(),
+        nbrPatch().faceCellCentres()
     );
 }
 
@@ -519,6 +506,7 @@ Foam::cyclicAMIPolyPatch::cyclicAMIPolyPatch
 )
 :
     coupledPolyPatch(name, dict, index, bm, patchType),
+    cyclicTransform(dict),
     nbrPatchName_(dict.lookupOrDefault<word>("neighbourPatch", "")),
     coupleGroup_(dict),
     nbrPatchID_(-1),
@@ -649,6 +637,7 @@ Foam::cyclicAMIPolyPatch::cyclicAMIPolyPatch
 )
 :
     coupledPolyPatch(pp, bm, index, newSize, newStart),
+    cyclicTransform(pp),
     nbrPatchName_(nbrPatchName),
     coupleGroup_(pp.coupleGroup_),
     nbrPatchID_(-1),
@@ -688,6 +677,7 @@ Foam::cyclicAMIPolyPatch::cyclicAMIPolyPatch
 )
 :
     coupledPolyPatch(pp, bm, index, mapAddressing, newStart),
+    cyclicTransform(pp),
     nbrPatchName_(pp.nbrPatchName_),
     coupleGroup_(pp.coupleGroup_),
     nbrPatchID_(-1),
@@ -714,16 +704,16 @@ Foam::cyclicAMIPolyPatch::~cyclicAMIPolyPatch()
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-Foam::label Foam::cyclicAMIPolyPatch::neighbPatchID() const
+Foam::label Foam::cyclicAMIPolyPatch::nbrPatchID() const
 {
     if (nbrPatchID_ == -1)
     {
-        nbrPatchID_ = this->boundaryMesh().findPatchID(neighbPatchName());
+        nbrPatchID_ = this->boundaryMesh().findPatchID(nbrPatchName());
 
         if (nbrPatchID_ == -1)
         {
             FatalErrorInFunction
-                << "Illegal neighbourPatch name " << neighbPatchName()
+                << "Illegal neighbourPatch name " << nbrPatchName()
                 << nl << "Valid patch names are "
                 << this->boundaryMesh().names()
                 << exit(FatalError);
@@ -736,13 +726,13 @@ Foam::label Foam::cyclicAMIPolyPatch::neighbPatchID() const
                 this->boundaryMesh()[nbrPatchID_]
             );
 
-        if (nbrPatch.neighbPatchName() != name())
+        if (nbrPatch.nbrPatchName() != name())
         {
             WarningInFunction
                 << "Patch " << name()
-                << " specifies neighbour patch " << neighbPatchName()
+                << " specifies neighbour patch " << nbrPatchName()
                 << nl << " but that in return specifies "
-                << nbrPatch.neighbPatchName() << endl;
+                << nbrPatch.nbrPatchName() << endl;
         }
     }
 
@@ -752,13 +742,13 @@ Foam::label Foam::cyclicAMIPolyPatch::neighbPatchID() const
 
 bool Foam::cyclicAMIPolyPatch::owner() const
 {
-    return index() < neighbPatchID();
+    return index() < nbrPatchID();
 }
 
 
-const Foam::cyclicAMIPolyPatch& Foam::cyclicAMIPolyPatch::neighbPatch() const
+const Foam::cyclicAMIPolyPatch& Foam::cyclicAMIPolyPatch::nbrPatch() const
 {
-    const polyPatch& pp = this->boundaryMesh()[neighbPatchID()];
+    const polyPatch& pp = this->boundaryMesh()[nbrPatchID()];
     return refCast<const cyclicAMIPolyPatch>(pp);
 }
 
@@ -841,7 +831,7 @@ bool Foam::cyclicAMIPolyPatch::applyLowWeightCorrection() const
     }
     else
     {
-        return neighbPatch().AMILowWeightCorrection_ > 0;
+        return nbrPatch().AMILowWeightCorrection_ > 0;
     }
 }
 
@@ -854,12 +844,12 @@ const Foam::scalarField& Foam::cyclicAMIPolyPatch::weightsSum() const
     }
     else
     {
-        return neighbPatch().AMIs()[0].tgtWeightsSum();
+        return nbrPatch().AMIs()[0].tgtWeightsSum();
     }
 }
 
 
-const Foam::scalarField& Foam::cyclicAMIPolyPatch::neighbWeightsSum() const
+const Foam::scalarField& Foam::cyclicAMIPolyPatch::nbrWeightsSum() const
 {
     if (owner())
     {
@@ -867,7 +857,7 @@ const Foam::scalarField& Foam::cyclicAMIPolyPatch::neighbWeightsSum() const
     }
     else
     {
-        return neighbPatch().AMIs()[0].srcWeightsSum();
+        return nbrPatch().AMIs()[0].srcWeightsSum();
     }
 }
 
@@ -979,7 +969,7 @@ Foam::tmp<Foam::scalarField> Foam::cyclicAMIPolyPatch::interpolate
     const scalarUList& defaultValues
 ) const
 {
-    const cyclicAMIPolyPatch& nei = neighbPatch();
+    const cyclicAMIPolyPatch& nei = nbrPatch();
 
     tmp<scalarField> result(new scalarField(size(), Zero));
 
@@ -1079,7 +1069,7 @@ Foam::labelPair Foam::cyclicAMIPolyPatch::pointAMIAndFace
             const vector ntt = AMITransforms()[i].transform(nt);
 
             const label nbrFacei =
-                AMIs()[i].tgtPointFace(*this, neighbPatch(), ntt, facei, ptt);
+                AMIs()[i].tgtPointFace(*this, nbrPatch(), ntt, facei, ptt);
 
             if (nbrFacei >= 0)
             {
@@ -1090,17 +1080,17 @@ Foam::labelPair Foam::cyclicAMIPolyPatch::pointAMIAndFace
     }
     else
     {
-        forAll(neighbPatch().AMIs(), i)
+        forAll(nbrPatch().AMIs(), i)
         {
             point ptt =
-                neighbPatch().AMITransforms()[i].invTransformPosition(pt);
+                nbrPatch().AMITransforms()[i].invTransformPosition(pt);
             const vector ntt =
-                neighbPatch().AMITransforms()[i].invTransform(nt);
+                nbrPatch().AMITransforms()[i].invTransform(nt);
 
             const label nbrFacei =
-                neighbPatch().AMIs()[i].srcPointFace
+                nbrPatch().AMIs()[i].srcPointFace
                 (
-                    neighbPatch(),
+                    nbrPatch(),
                     *this,
                     ntt,
                     facei,
@@ -1121,7 +1111,7 @@ Foam::labelPair Foam::cyclicAMIPolyPatch::pointAMIAndFace
 
 Foam::label Foam::cyclicAMIPolyPatch::singlePatchProc() const
 {
-    const cyclicAMIPolyPatch& patch = owner() ? *this : neighbPatch();
+    const cyclicAMIPolyPatch& patch = owner() ? *this : nbrPatch();
 
     const label proc = patch.AMIs()[0].singlePatchProc();
 
@@ -1145,6 +1135,8 @@ void Foam::cyclicAMIPolyPatch::write(Ostream& os) const
         writeEntry(os, "neighbourPatch", nbrPatchName_);
     }
     coupleGroup_.write(os);
+
+    cyclicTransform::write(os);
 
     switch (transformType())
     {

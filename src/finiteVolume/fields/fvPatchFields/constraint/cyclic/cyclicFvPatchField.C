@@ -126,25 +126,15 @@ Foam::cyclicFvPatchField<Type>::patchNeighbourField() const
 {
     const Field<Type>& iField = this->primitiveField();
     const labelUList& nbrFaceCells =
-        cyclicPatch().cyclicPatch().neighbPatch().faceCells();
+        cyclicPatch().cyclicPatch().nbrPatch().faceCells();
 
     tmp<Field<Type>> tpnf(new Field<Type>(this->size()));
     Field<Type>& pnf = tpnf.ref();
 
 
-    if (doTransform())
+    forAll(pnf, facei)
     {
-        forAll(pnf, facei)
-        {
-            pnf[facei] = transform().transform(iField[nbrFaceCells[facei]]);
-        }
-    }
-    else
-    {
-        forAll(pnf, facei)
-        {
-            pnf[facei] = iField[nbrFaceCells[facei]];
-        }
+        pnf[facei] = transform().transform(iField[nbrFaceCells[facei]]);
     }
 
     return tpnf;
@@ -153,7 +143,7 @@ Foam::cyclicFvPatchField<Type>::patchNeighbourField() const
 
 template<class Type>
 const Foam::cyclicFvPatchField<Type>&
-Foam::cyclicFvPatchField<Type>::neighbourPatchField() const
+Foam::cyclicFvPatchField<Type>::nbrPatchField() const
 {
     const GeometricField<Type, fvPatchField, volMesh>& fld =
     static_cast<const GeometricField<Type, fvPatchField, volMesh>&>
@@ -163,7 +153,7 @@ Foam::cyclicFvPatchField<Type>::neighbourPatchField() const
 
     return refCast<const cyclicFvPatchField<Type>>
     (
-        fld.boundaryField()[this->cyclicPatch().neighbPatchID()]
+        fld.boundaryField()[this->cyclicPatch().nbrPatchID()]
     );
 }
 
@@ -179,7 +169,7 @@ void Foam::cyclicFvPatchField<Type>::updateInterfaceMatrix
 ) const
 {
     const labelUList& nbrFaceCells =
-        cyclicPatch().cyclicPatch().neighbPatch().faceCells();
+        cyclicPatch().cyclicPatch().nbrPatch().faceCells();
 
     scalarField pnf(psiInternal, nbrFaceCells);
 
@@ -206,7 +196,7 @@ void Foam::cyclicFvPatchField<Type>::updateInterfaceMatrix
 ) const
 {
     const labelUList& nbrFaceCells =
-        cyclicPatch().cyclicPatch().neighbPatch().faceCells();
+        cyclicPatch().cyclicPatch().nbrPatch().faceCells();
 
     Field<Type> pnf(psiInternal, nbrFaceCells);
 

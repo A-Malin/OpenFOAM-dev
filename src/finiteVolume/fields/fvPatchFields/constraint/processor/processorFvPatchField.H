@@ -261,14 +261,6 @@ public:
                 return procPatch_.neighbProcNo();
             }
 
-            //- Does the patch field perform the transformation
-            virtual bool doTransform() const
-            {
-                return
-                    procPatch_.transform().rotates()
-                 && pTraits<Type>::rank != 0;
-            }
-
             //- Return transformation between the coupled patches
             virtual const transformer& transform() const
             {

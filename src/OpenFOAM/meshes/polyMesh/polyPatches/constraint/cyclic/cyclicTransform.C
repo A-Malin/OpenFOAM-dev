@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2020 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2020 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,56 +23,51 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "cyclicACMIGAMGInterfaceField.H"
-#include "addToRunTimeSelectionTable.H"
-#include "lduMatrix.H"
+#include "cyclicTransform.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
 {
-    defineTypeNameAndDebug(cyclicACMIGAMGInterfaceField, 0);
-    addToRunTimeSelectionTable
-    (
-        GAMGInterfaceField,
-        cyclicACMIGAMGInterfaceField,
-        lduInterface
-    );
-    addToRunTimeSelectionTable
-    (
-        GAMGInterfaceField,
-        cyclicACMIGAMGInterfaceField,
-        lduInterfaceField
-    );
+    template<>
+    const char* NamedEnum<cyclicTransform::transformTypes, 4>::names[] =
+    {
+        "unspecified",
+        "none",
+        "rotational",
+        "translational"
+    };
+
+    const NamedEnum<cyclicTransform::transformTypes, 4>
+        cyclicTransform::transformTypeNames;
 }
 
 
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
+// * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * * * * * //
 
-Foam::cyclicACMIGAMGInterfaceField::cyclicACMIGAMGInterfaceField
-(
-    const GAMGInterface& GAMGCp,
-    const lduInterfaceField& fineInterface
-)
+Foam::cyclicTransform::cyclicTransform()
 :
-    cyclicAMIGAMGInterfaceField(GAMGCp, fineInterface)
+    transformType_(UNSPECIFIED)
 {}
 
 
-Foam::cyclicACMIGAMGInterfaceField::cyclicACMIGAMGInterfaceField
-(
-    const GAMGInterface& GAMGCp,
-    const int rank
-)
+Foam::cyclicTransform::cyclicTransform(const dictionary& dict)
 :
-    cyclicAMIGAMGInterfaceField(GAMGCp, rank)
+    transformType_
+    (
+        dict.found("transformType")
+      ? transformTypeNames.read(dict.lookup("transformType"))
+      : UNSPECIFIED
+    )
 {}
 
 
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-Foam::cyclicACMIGAMGInterfaceField::~cyclicACMIGAMGInterfaceField()
-{}
+void Foam::cyclicTransform::write(Ostream& os) const
+{
+    writeEntry(os, "transformType", transformTypeNames[transformType_]);
+}
 
 
 // ************************************************************************* //

@@ -58,9 +58,6 @@ class cyclicGAMGInterfaceField
         //- Local reference cast into the cyclic interface
         const cyclicGAMGInterface& cyclicInterface_;
 
-        //- Is the transform required
-        bool doTransform_;
-
         //- Rank of component for transformation
         int rank_;
 
@@ -84,7 +81,6 @@ public:
         cyclicGAMGInterfaceField
         (
             const GAMGInterface& GAMGCp,
-            const bool doTransform,
             const int rank
         );
 
@@ -108,12 +104,6 @@ public:
 
 
         //- Cyclic interface functions
-
-            //- Does the interface field perform the transformation
-            virtual bool doTransform() const
-            {
-                return doTransform_;
-            }
 
             //- Return the transformation
             virtual const transformer& transform() const

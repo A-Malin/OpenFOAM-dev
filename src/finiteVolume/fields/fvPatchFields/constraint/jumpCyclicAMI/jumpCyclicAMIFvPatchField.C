@@ -96,7 +96,7 @@ Foam::jumpCyclicAMIFvPatchField<Type>::patchNeighbourField() const
 {
     const Field<Type>& iField = this->primitiveField();
     const labelUList& nbrFaceCells =
-        this->cyclicAMIPatch().cyclicAMIPatch().neighbPatch().faceCells();
+        this->cyclicAMIPatch().cyclicAMIPatch().nbrPatch().faceCells();
 
     Field<Type> pnf(iField, nbrFaceCells);
     tmp<Field<Type>> tpnf;
@@ -115,10 +115,7 @@ Foam::jumpCyclicAMIFvPatchField<Type>::patchNeighbourField() const
         tpnf = this->cyclicAMIPatch().interpolate(pnf);
     }
 
-    if (this->doTransform())
-    {
-        this->transform().transform(tpnf.ref(), tpnf());
-    }
+    this->transform().transform(tpnf.ref(), tpnf());
 
     tmp<Field<Type>> tjf = jump();
     if (!this->cyclicAMIPatch().owner())
@@ -154,7 +151,7 @@ void Foam::jumpCyclicAMIFvPatchField<Type>::updateInterfaceMatrix
 ) const
 {
     const labelUList& nbrFaceCells =
-        this->cyclicAMIPatch().cyclicAMIPatch().neighbPatch().faceCells();
+        this->cyclicAMIPatch().cyclicAMIPatch().nbrPatch().faceCells();
 
     Field<Type> pnf(psiInternal, nbrFaceCells);
 
