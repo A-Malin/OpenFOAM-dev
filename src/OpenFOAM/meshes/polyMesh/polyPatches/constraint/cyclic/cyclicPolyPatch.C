@@ -110,6 +110,8 @@ void Foam::cyclicPolyPatch::calcTransformTensors
         {
             // Type is rotation or unknown and normals not aligned
 
+//has to modify this block somehow  to be correct for helical
+
             tensorField forwardT(thisPatchCtrs.size());
             tensorField reverseT(thisPatchCtrs.size());
 
@@ -500,6 +502,46 @@ void Foam::cyclicPolyPatch::calcTransforms
             // Set transformation
             transform_ = transformer(separation_);
         }
+        else if (transformType() == HELICAL)
+        {
+            // Calculate using the given rotation axis and centre. Do not
+            // use calculated normals.
+            vector n0 = findFaceMaxRadius(thisPatchCtrs);
+            vector n1 = -findFaceMaxRadius(nbrPatchCtrs);
+            n0 /= mag(n0) + vSmall;
+            n1 /= mag(n1) + vSmall;
+
+            if (debug)
+            {
+                scalar theta = radToDeg(acos(n0 & n1));
+
+                Pout<< "cyclicPolyPatch::calcTransforms :"
+                    << " patch:" << name()
+                    << " Specified rotation :"
+                    << " n0:" << n0 << " n1:" << n1
+                    << " swept angle: " << theta << " [deg]"
+                    << " Specified separation vector : "
+                    << separation_ << endl;
+            }
+
+            // Extended tensor from two local coordinate systems calculated
+            // using normal and rotation axis
+            const tensor E0
+            (
+                rotationAxis_,
+                (n0 ^ rotationAxis_),
+                n0
+            );
+            const tensor E1
+            (
+                rotationAxis_,
+                (-n1 ^ rotationAxis_),
+                -n1
+            );
+            const tensor revT(E1.T() & E0);
+
+            transform_ = transformer(separation_, revT.T());
+        }
         else
         {
             const scalarField thisPatchTols
@@ -632,6 +674,63 @@ void Foam::cyclicPolyPatch::getCentresAndAnchors
 
                 thisPatchCtrs -= separation_;
                 anchors0 -= separation_;
+                break;
+            }
+            case HELICAL:
+            {
+                vector n0 = findFaceMaxRadius(thisPatchCtrs);
+                vector n1 = -findFaceMaxRadius(nbrPatchCtrs);
+                n0 /= mag(n0) + vSmall;
+                n1 /= mag(n1) + vSmall;
+
+                if (debug)
+                {
+                    scalar theta = radToDeg(acos(n0 & n1));
+
+                    Pout<< "cyclicPolyPatch::getCentresAndAnchors :"
+                        << " patch:" << name()
+                        << " Specified rotation :"
+                        << " n0:" << n0 << " n1:" << n1
+                        << " swept angle: " << theta << " [deg]"
+                        << "Specified translation : " << separation_
+                         << endl;
+                }
+
+                // Extended tensor from two local coordinate systems calculated
+                // using normal and rotation axis
+                const tensor E0
+                (
+                    rotationAxis_,
+                    (n0 ^ rotationAxis_),
+                    n0
+                );
+                const tensor E1
+                (
+                    rotationAxis_,
+                    (-n1 ^ rotationAxis_),
+                    -n1
+                );
+                const tensor revT(E1.T() & E0);
+
+                // Rotation
+                forAll(thisPatchCtrs, facei)
+                {
+                    thisPatchCtrs[facei] =
+                        Foam::transform
+                        (
+                            revT,
+                            thisPatchCtrs[facei] - rotationCentre_ - separation_
+                        )
+                      + rotationCentre_;
+                    anchors0[facei] =
+                        Foam::transform
+                        (
+                            revT,
+                            anchors0[facei] - rotationCentre_ - separation_
+                        )
+                      + rotationCentre_;
+                }
+
                 break;
             }
             default:
@@ -844,6 +943,23 @@ Foam::cyclicPolyPatch::cyclicPolyPatch
             dict.lookup("separation") >> separation_;
             break;
         }
+        case HELICAL:
+        {
+            dict.lookup("rotationAxis") >> rotationAxis_;
+            dict.lookup("rotationCentre") >> rotationCentre_;
+
+            scalar magRot = mag(rotationAxis_);
+            if (magRot < small)
+            {
+                FatalIOErrorInFunction(dict)
+                    << "Illegal rotationAxis " << rotationAxis_ << endl
+                    << "Please supply a non-zero vector."
+                    << exit(FatalIOError);
+            }
+            rotationAxis_ /= magRot;
+            dict.lookup("separation") >> separation_;
+            break;
+        }
         default:
         {
             // no additional info required
@@ -999,6 +1115,12 @@ void Foam::cyclicPolyPatch::transformPosition(pointField& l) const
                 Foam::transform(transform().R(), l-rotationCentre_)
               + rotationCentre_;
         }
+        else if (transformType() == HELICAL)
+        {
+            l =
+                Foam::transform(transform().R(), l-rotationCentre_)
+              + rotationCentre_ - transform().t();
+        }
         else
         {
             l = Foam::transform(transform().R(), l);
@@ -1021,6 +1143,12 @@ void Foam::cyclicPolyPatch::transformPosition(point& l, const label facei) const
         {
             l = Foam::transform(transform().R(), l - rotationCentre_)
               + rotationCentre_;
+        }
+        else if (transformType() == HELICAL)
+        {
+            l =
+                Foam::transform(transform().R(), l-rotationCentre_)
+              + rotationCentre_ - transform().t();
         }
         else
         {
@@ -1578,6 +1706,13 @@ void Foam::cyclicPolyPatch::write(Ostream& os) const
         }
         case TRANSLATIONAL:
         {
+            writeEntry(os, "separation", separation_);
+            break;
+        }
+        case HELICAL:
+        {
+            writeEntry(os, "rotationAxis", rotationAxis_);
+            writeEntry(os, "rotationCentre", rotationCentre_);
             writeEntry(os, "separation", separation_);
             break;
         }

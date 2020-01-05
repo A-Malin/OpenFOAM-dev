@@ -57,10 +57,11 @@ public:
         UNSPECIFIED,        // Unspecified -> automatic transformation
         NONE,               // No tranformation
         ROTATIONAL,         // Rotation around a coordinate axis
-        TRANSLATIONAL       // Translation
+        TRANSLATIONAL,       // Translation
+        HELICAL             // Combination of rotation and plane translation (e.g. helix) 
     };
 
-    static const NamedEnum<transformTypes, 4> transformTypeNames;
+    static const NamedEnum<transformTypes, 5> transformTypeNames;
 
 
 private:

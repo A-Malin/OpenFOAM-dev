@@ -30,15 +30,16 @@ License
 namespace Foam
 {
     template<>
-    const char* NamedEnum<cyclicTransform::transformTypes, 4>::names[] =
+    const char* NamedEnum<cyclicTransform::transformTypes, 5>::names[] =
     {
         "unspecified",
         "none",
         "rotational",
-        "translational"
+        "translational",
+        "helical"
     };
 
-    const NamedEnum<cyclicTransform::transformTypes, 4>
+    const NamedEnum<cyclicTransform::transformTypes, 5>
         cyclicTransform::transformTypeNames;
 }
 
